@@ -15,4 +15,8 @@
     <ProjectReference Include="..\EmailService\EmailService.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="ServiceRegistryModules.AspNetCore" Version="1.2.0" />
+  </ItemGroup>
+
 </Project>

@@ -1,0 +1,7 @@
+﻿[
+    {
+        "To": "some@email.com",
+        "Subject": "Test Subject",
+        "Body": "Test Body"
+    }
+]
