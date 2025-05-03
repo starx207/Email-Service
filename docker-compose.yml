@@ -1,0 +1,5 @@
+services:
+  emailservice.api:
+    build:
+      context: .
+      dockerfile: src/EmailService.Api/Dockerfile
