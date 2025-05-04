@@ -10,8 +10,13 @@ public sealed class EmailConfigurationRegistry : AbstractRegistryModule {
     public EmailConfigurationRegistry(IConfiguration configuration) => _configuration = configuration;
 
     public override void ConfigureServices(IServiceCollection services) {
-        var emailConfig = new EmailConfiguration();
-        // TODO: Configure the SMTP client from appsettings
+        var emailConfig = new EmailConfiguration() {
+            Host = _configuration.GetValue<string>("Email:Host") ?? string.Empty,
+            Port = _configuration.GetValue<int>("Email:Port"),
+            SecureSocket = _configuration.GetValue<string>("Email:SecureSocket") ?? string.Empty,
+            Sender = _configuration.GetValue<string>("Email:Sender") ?? string.Empty,
+            Password = _configuration.GetValue<string>("Email:Password") ?? string.Empty
+        };
         Configuring?.Invoke(this, emailConfig);
 
         services.AddEmailService(emailConfig);

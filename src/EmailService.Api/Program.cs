@@ -1,3 +1,4 @@
+using EmailService.Api.Endpoints;
 using EmailService.Api.IoC;
 using ServiceRegistryModules;
 
@@ -10,6 +11,7 @@ builder.ApplyRegistries(config => config
 var app = builder.Build();
 
 // Define a minimal API endpoint
+app.MapEndpoints();
 app.MapGet("/", () => "Welcome to EmailService API!");
 
 app.Run();

@@ -12,7 +12,7 @@ public class FakeEmailClient : IEmailClient {
     public List<SentEmail> SentEmails { get; } = [];
 
     public virtual Task AuthenticateAsync(string userName, string password, CancellationToken cancellationToken = default) {
-        _authenticated = string.Equals(userName, Configuration.From) && string.Equals(password, Configuration.Password);
+        _authenticated = string.Equals(userName, Configuration.Sender) && string.Equals(password, Configuration.Password);
         return Task.CompletedTask;
     }
 

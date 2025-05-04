@@ -3,5 +3,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:80
+      - EMAIL__SENDER=${EMAIL__SENDER}
+      - EMAIL__PASSWORD=${EMAIL__PASSWORD}
     ports:
       - "5000:80"
