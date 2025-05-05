@@ -1,5 +1,6 @@
 using EmailService.Api.Endpoints;
 using EmailService.Api.IoC;
+using EmailService.Api.Middleware;
 using ServiceRegistryModules;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +10,8 @@ builder.ApplyRegistries(config => config
 );
 
 var app = builder.Build();
+
+app.UseAppExceptionHandling();
 
 // Define a minimal API endpoint
 app.MapEndpoints();

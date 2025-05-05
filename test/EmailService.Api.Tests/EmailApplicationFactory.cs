@@ -65,24 +65,55 @@ public sealed class EmailApplicationFactory : WebApplicationFactory<Program>, IA
                 return null;
             }
 
+            await using var connection = await OpenConnectionAsync();
+            await using var command = CreateGetEmailByIdCommand(id, connection);
+            var email = await GetEmailFromCommandAsync(command);
+            if (scrubResult) {
+                ScrubEmail(email);
+            }
+            return email;
+        }
+
+        public async Task WaitForRetriesAsync(string emailId, TimeSpan? delay = null, CancellationToken cancellationToken = default) {
+            if (!Guid.TryParse(emailId, out var id)) {
+                return;
+            }
+            delay ??= TimeSpan.FromMilliseconds(100);
+
+            await using var connection = await OpenConnectionAsync(cancellationToken);
+            await using var command = CreateGetEmailByIdCommand(id, connection);
+            while (!cancellationToken.IsCancellationRequested) {
+                try {
+                    var email = await GetEmailFromCommandAsync(command, cancellationToken);
+                    if (email is { } && (email.Status == EmailStatus.Delivered || email.Status == EmailStatus.Undeliverable)) {
+                        break;
+                    }
+                    await Task.Delay(delay.Value, cancellationToken);
+                } catch (TaskCanceledException) {
+                    break;
+                }
+            }
+        }
+
+        private async Task<EmailEntityDto?> GetEmailFromCommandAsync(NpgsqlCommand command, CancellationToken cancellationToken = default) {
             EmailEntityDto? email = null;
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken)) {
+                var data = reader.GetString(0);
+                email = EmailEntityDto.FromJson(data);
+            }
+            return email;
+        }
+
+        private NpgsqlCommand CreateGetEmailByIdCommand(Guid emailId, NpgsqlConnection connection) {
             var sqlQuery = """
             SELECT data
             FROM   mt_doc_email
             WHERE  id = @Id
             """;
-            await using var connection = await OpenConnectionAsync();
-            await using var command = new NpgsqlCommand(sqlQuery, connection);
-            command.Parameters.AddWithValue("Id", id);
-            await using var reader = await command.ExecuteReaderAsync();
-            if (await reader.ReadAsync()) {
-                var data = reader.GetString(0);
-                email = EmailEntityDto.FromJson(data);
-            }
-            if (scrubResult) {
-                ScrubEmail(email);
-            }
-            return email;
+            var command = new NpgsqlCommand(sqlQuery, connection);
+            command.Parameters.AddWithValue("Id", emailId);
+            return command;
         }
 
         private void ScrubEmail(EmailEntityDto? email) {
@@ -92,9 +123,9 @@ public sealed class EmailApplicationFactory : WebApplicationFactory<Program>, IA
             email.ScrubSender(Configuration);
         }
 
-        private async Task<NpgsqlConnection> OpenConnectionAsync() {
+        private async Task<NpgsqlConnection> OpenConnectionAsync(CancellationToken cancellationToken = default) {
             var connection = new NpgsqlConnection(_connectionString);
-            await connection.OpenAsync();
+            await connection.OpenAsync(cancellationToken);
             return connection;
         }
     }

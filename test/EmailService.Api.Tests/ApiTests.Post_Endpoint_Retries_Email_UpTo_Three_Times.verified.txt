@@ -1,0 +1,11 @@
+﻿{
+  Id: Guid_1,
+  Body: Test Body,
+  Sender: {Configuration.Sender},
+  Status: Undeliverable,
+  Retries: 3,
+  Subject: Test Subject,
+  Recipient: some@email.com,
+  SubmittedOn: DateTime_1,
+  LastSendAttempt: DateTime_2
+}

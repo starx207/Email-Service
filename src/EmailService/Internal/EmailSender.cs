@@ -1,5 +1,6 @@
 using MailKit.Security;
 using Microsoft.Extensions.Logging;
+using Polly;
 
 namespace EmailService.Internal;
 
@@ -19,9 +20,6 @@ internal sealed class EmailSender : IEmailSender {
         : this(emailClient, emailConfig, emailStore)
         => _logger = logger;
 
-    // TODO: I'm considering using Polly for the retry logic here.
-    //       I'm also considering pulling the save change logic out of each IEmailEventStore method and just doing it once
-    //       at the end of the operation. This would negate the need for an async OnRetry callback for Polly (since all the docs show non-async callbacks).
     public async Task<string> SendAsync(string recipient, string subject, string message, CancellationToken cancellationToken = default) {
         var mailId = await _emailStore.SubmitEmailAsync(recipient, subject, message, cancellationToken);
 
@@ -32,18 +30,35 @@ internal sealed class EmailSender : IEmailSender {
         mailMessage.From.Add(new MimeKit.MailboxAddress(_emailConfig.Sender, _emailConfig.Sender));
         mailMessage.To.Add(new MimeKit.MailboxAddress(recipient, recipient));
 
-        try {
-            var socketOptions = SocketOptionsFrom(_emailConfig.SecureSocket);
-            await _emailClient.ConnectAsync(_emailConfig.Host, _emailConfig.Port, socketOptions, cancellationToken);
-            await _emailClient.AuthenticateAsync(_emailConfig.Sender, _emailConfig.Password, cancellationToken);
-            await _emailClient.SendAsync(mailMessage, cancellationToken);
-            await _emailClient.DisconnectAsync(true, cancellationToken);
+        var attempt = 0;
+        var retryPolicy = Policy.Handle<Exception>()
+            .WaitAndRetryAsync(
+                retryCount: EmailConstants.MAX_RETIRES,
+                sleepDurationProvider: attempt => TimeSpan.FromMilliseconds(250 * Math.Pow(2, attempt - 1)),
+                onRetry: async (ex, _) => {
+                    attempt++; // Not sure this is the correct way to do this, but I can't find anything in the Context that would tell me the attempt number.
+                    await _emailStore.RecordEmailFailedAsync(mailId, cancellationToken);
+                    if (attempt >= EmailConstants.MAX_RETIRES) {
+                        _logger?.LogEmailSendFailed(recipient, subject, ex);
+                    }
+                }
+            );
 
-            await _emailStore.RecordEmailSentAsync(mailId, cancellationToken);
-        } catch (Exception ex) {
-            _logger?.LogEmailSendFailed(recipient, subject, ex);
-            await _emailStore.RecordEmailFailedAsync(mailId, cancellationToken);
+        try {
+            await retryPolicy.ExecuteAsync(async (token) => {
+                var socketOptions = SocketOptionsFrom(_emailConfig.SecureSocket);
+                await _emailClient.ConnectAsync(_emailConfig.Host, _emailConfig.Port, socketOptions, cancellationToken);
+                await _emailClient.AuthenticateAsync(_emailConfig.Sender, _emailConfig.Password, cancellationToken);
+                await _emailClient.SendAsync(mailMessage, cancellationToken);
+                await _emailClient.DisconnectAsync(true, cancellationToken);
+
+                await _emailStore.RecordEmailSentAsync(mailId, cancellationToken);
+            }, cancellationToken);
+        } catch {
+            // If we still fail after all retries, just move on.
+            // We've already logged the error and updated the email status in the retry callback.
         }
+
         return mailId.ToString();
     }
 

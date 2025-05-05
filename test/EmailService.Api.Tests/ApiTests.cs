@@ -1,3 +1,5 @@
+using NSubstitute.ExceptionExtensions;
+using NSubstitute.Extensions;
 using Shouldly;
 using System.Net;
 using System.Net.Http.Json;
@@ -32,5 +34,32 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationFactory> {
             Sent = _factory.EmailClient.SentEmails,
             Saved = savedEmail
         });
+    }
+
+    [Fact]
+    public async Task Post_Endpoint_Retries_Email_UpTo_Three_Times() {
+        // Arrange
+        using var client = _factory.CreateClient();
+
+        // Simulate a failure when trying to send the email.
+        _factory.EmailClient.Configure().SendAsync(default!, default).ThrowsAsyncForAnyArgs<Exception>();
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/email", new {
+            To = "some@email.com",
+            Subject = "Test Subject",
+            Body = "Test Body"
+        });
+
+        response.EnsureSuccessStatusCode();
+        var emailId = await response.Content.ReadAsStringAsync();
+
+        // Wait for the email retries to complete. But bail out if not done after 5 seconds.
+        await _factory.Database.WaitForRetriesAsync(emailId,
+            cancellationToken: new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token);
+
+        // Assert
+        var savedEmail = await _factory.Database.GetEmailByIdAsync(emailId);
+        await Verify(savedEmail);
     }
 }
