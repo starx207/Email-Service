@@ -4,7 +4,6 @@
 	"name": ".NET 8",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/dotnet:8.0",
-
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {
 		"ghcr.io/devcontainers/features/docker-in-docker:2": {
@@ -16,30 +15,29 @@
 			"dockerDashComposeVersion": "v2"
 		}
 	},
-
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
-	"forwardPorts": [5000],
+	"forwardPorts": [
+		5000
+	],
 	// "portsAttributes": {
 	// 		"5001": {
 	// 			"protocol": "https"
 	// 		}
 	// },
-
 	// Use 'postCreateCommand' to run commands after the container is created.
 	// "postCreateCommand": "dotnet dev-certs https --trust",
-
 	// Configure tool-specific properties.
 	"customizations": {
 		"vscode": {
-			"extensions": [ 
-				"ms-dotnettools.csdevkit", 
-				"patcx.vscode-nuget-gallery", 
-				"ms-azuretools.vscode-containers" 
+			"extensions": [
+				"ms-dotnettools.csdevkit",
+				"patcx.vscode-nuget-gallery",
+				"ms-azuretools.vscode-containers",
+				"dbcode.dbcode"
 			]
 		}
 	}
-
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
 	// "remoteUser": "root"
 }

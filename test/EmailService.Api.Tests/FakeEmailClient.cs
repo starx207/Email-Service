@@ -17,9 +17,7 @@ public class FakeEmailClient : IEmailClient {
     }
 
     public virtual Task ConnectAsync(string host, int port, SecureSocketOptions socketOptions, CancellationToken cancellationToken = default) {
-        // TODO: I should make this logic an internal static method in the core library so I don't define it twice.
-        //       Or I could make a derived property in the EmailConfiguration class that does this.
-        var parsedOptions = Enum.TryParse<SecureSocketOptions>(Configuration.SecureSocket, ignoreCase: true, out var sso) ? sso : SecureSocketOptions.Auto;
+        var parsedOptions = EmailSender.SocketOptionsFrom(Configuration.SecureSocket);
         _connected = string.Equals(host, Configuration.Host) && port == Configuration.Port && socketOptions == parsedOptions;
         return Task.CompletedTask;
     }

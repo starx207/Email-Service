@@ -1,5 +1,8 @@
+using EmailService.Events;
 using EmailService.Internal;
 using MailKit.Net.Smtp;
+using Marten;
+using Marten.Events.Projections;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EmailService;
@@ -22,7 +25,20 @@ public static class ServiceCollectionExtensions {
         }
 
         services.AddTransient<IEmailSender, EmailSender>();
+        services.AddTransient<IEmailEventStore, EmailEventStore>();
 
+        services.AddMarten(options => {
+
+            options.Connection(emailConfig.StoreConnectionString);
+
+            options.Events.AddEventType<EmailSubmitted>();
+            options.Events.AddEventType<EmailSendAttemptFailed>();
+            options.Events.AddEventType<EmailSent>();
+
+            options.Projections.Add<EmailProjection>(ProjectionLifecycle.Inline);
+
+        }).UseLightweightSessions()
+        .OptimizeArtifactWorkflow();
 
         return services;
     }

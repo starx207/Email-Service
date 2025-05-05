@@ -17,6 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Npgsql" Version="9.0.3" />
     <PackageReference Include="ServiceRegistryModules.AspNetCore" Version="1.2.0" />
   </ItemGroup>
 

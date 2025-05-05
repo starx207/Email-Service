@@ -5,5 +5,18 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - EMAIL__SENDER=${EMAIL__SENDER}
       - EMAIL__PASSWORD=${EMAIL__PASSWORD}
+      - CONNECTIONSTRINGS__PASSWORD=${CONNECTIONSTRINGS__PASSWORD}
+      - CONNECTIONSTRINGS__USER=${CONNECTIONSTRINGS__USER}
     ports:
       - "5000:80"
+    depends_on:
+      - db
+
+  db:
+    image: postgres:17.4
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${CONNECTIONSTRINGS__USER}
+      POSTGRES_PASSWORD: ${CONNECTIONSTRINGS__PASSWORD}
+      POSTGRES_DB: EmailServiceDb
