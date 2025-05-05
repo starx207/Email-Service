@@ -1,7 +1,20 @@
-﻿[
-  {
-    To: some@email.com,
+﻿{
+  Sent: [
+    {
+      To: some@email.com,
+      Subject: Test Subject,
+      Body: Test Body
+    }
+  ],
+  Saved: {
+    Id: Guid_1,
+    Body: Test Body,
+    Sender: {Configuration.Sender},
+    Status: Delivered,
     Subject: Test Subject,
-    Body: Test Body
+    Recipient: some@email.com,
+    SubmittedOn: DateTime_1,
+    DeliveryDate: DateTime_2,
+    LastSendAttempt: DateTime_2
   }
-]
+}

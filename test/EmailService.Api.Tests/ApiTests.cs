@@ -4,7 +4,6 @@ using System.Net.Http.Json;
 
 namespace EmailService.Api.Tests;
 
-// TODO: Not sure I want to use IClassFixture here, but it is a good start
 public class ApiTests : VerifyBase, IClassFixture<EmailApplicationFactory> {
     private readonly EmailApplicationFactory _factory;
 
@@ -26,6 +25,12 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationFactory> {
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        await Verify(_factory.EmailClient.SentEmails);
+        var emailId = await response.Content.ReadAsStringAsync();
+
+        var savedEmail = await _factory.Database.GetEmailByIdAsync(emailId);
+        await Verify(new {
+            Sent = _factory.EmailClient.SentEmails,
+            Saved = savedEmail
+        });
     }
 }
