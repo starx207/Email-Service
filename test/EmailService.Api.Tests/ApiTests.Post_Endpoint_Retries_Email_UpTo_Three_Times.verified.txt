@@ -4,7 +4,7 @@
   Sender: {Configuration.Sender},
   Status: Undeliverable,
   Retries: 3,
-  Subject: Test Subject,
+  Subject: Test Subject 2,
   Recipient: some@email.com,
   SubmittedOn: DateTime_1,
   LastSendAttempt: DateTime_2

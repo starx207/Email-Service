@@ -31,6 +31,7 @@ public sealed class EmailApplicationFactory : WebApplicationFactory<Program>, IA
         var handlerName = $"{typeof(ServiceRegistryOverrides).FullName!}.{nameof(ServiceRegistryOverrides.OnConfiguringEmailClient)}";
         builder.UseSetting($"{registryKey}:{nameof(EmailConfigurationRegistry.Configuring)}", handlerName);
         builder.UseSetting($"{registryKey}:{nameof(EmailConfigurationRegistry.ConnectionString)}", _dbContainer.GetConnectionString());
+        builder.UseSetting("Email:RetryDelay", "10 milliseconds"); // To speed up the test execution.
 
         // Now allow the application configuration to be created.
         base.ConfigureWebHost(builder);

@@ -9,5 +9,10 @@ public sealed class EmailConfiguration {
     public int Port { get; set; }
     public string SecureSocket { get; set; } = string.Empty;
     public string StoreConnectionString { get; set; } = string.Empty;
+    public string? RetryDelay { get; set; }
     internal IEmailClient? CustomClientOverride { get; set; }
+
+    public TimeSpan RetryDelayTimeSpan => string.IsNullOrEmpty(RetryDelay)
+        ? TimeSpan.FromSeconds(15)
+        : RetryDelay.ToTimeSpan();
 }

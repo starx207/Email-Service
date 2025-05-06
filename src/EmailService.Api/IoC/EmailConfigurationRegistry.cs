@@ -36,6 +36,7 @@ public sealed class EmailConfigurationRegistry : AbstractRegistryModule {
             SecureSocket = _configuration.GetValue<string>("Email:SecureSocket") ?? string.Empty,
             Sender = _configuration.GetValue<string>("Email:Sender") ?? string.Empty,
             Password = _configuration.GetValue<string>("Email:Password") ?? string.Empty,
+            RetryDelay = _configuration.GetValue<string>("Email:RetryDelay"),
             StoreConnectionString = connectionString
         };
         Configuring?.Invoke(this, emailConfig);

@@ -1,3 +1,5 @@
+using NSubstitute;
+using NSubstitute.ClearExtensions;
 using NSubstitute.ExceptionExtensions;
 using NSubstitute.Extensions;
 using Shouldly;
@@ -21,7 +23,7 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationFactory> {
         // Act
         var response = await client.PostAsJsonAsync("/api/email", new {
             To = "some@email.com",
-            Subject = "Test Subject",
+            Subject = "Test Subject 1",
             Body = "Test Body"
         });
 
@@ -31,7 +33,7 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationFactory> {
 
         var savedEmail = await _factory.Database.GetEmailByIdAsync(emailId);
         await Verify(new {
-            Sent = _factory.EmailClient.SentEmails,
+            Sent = _factory.EmailClient.SentEmails.WithSubject("Test Subject 1"),
             Saved = savedEmail
         });
     }
@@ -47,7 +49,7 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationFactory> {
         // Act
         var response = await client.PostAsJsonAsync("/api/email", new {
             To = "some@email.com",
-            Subject = "Test Subject",
+            Subject = "Test Subject 2",
             Body = "Test Body"
         });
 
@@ -61,5 +63,81 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationFactory> {
         // Assert
         var savedEmail = await _factory.Database.GetEmailByIdAsync(emailId);
         await Verify(savedEmail);
+    }
+
+    [Fact]
+    public async Task Post_Endpoint_StopsRetries_Once_Email_Sends() {
+        // Arrange
+        using var client = _factory.CreateClient();
+
+        // Simulate a failure for the first two attempts, then succeed.
+        var attempt = 0;
+        _factory.EmailClient.Configure().SendAsync(default!, default).ReturnsForAnyArgs(callInfo => {
+            attempt++;
+            if (attempt == 2) {
+                // On the second attempt, clear the substitute so the next call will function normally.
+                _factory.EmailClient.ClearSubstitute();
+            }
+            throw new Exception("Simulated failure");
+        });
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/email", new {
+            To = "some@email.com",
+            Subject = "Test Subject 3",
+            Body = "Test Body"
+        });
+
+        response.EnsureSuccessStatusCode();
+        var emailId = await response.Content.ReadAsStringAsync();
+
+        // Wait for the email retries to complete. But bail out if not done after 5 seconds.
+        await _factory.Database.WaitForRetriesAsync(emailId,
+            cancellationToken: new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token);
+
+        // Assert
+        var savedEmail = await _factory.Database.GetEmailByIdAsync(emailId);
+        await Verify(new {
+            Sent = _factory.EmailClient.SentEmails.WithSubject("Test Subject 3"),
+            Saved = savedEmail
+        });
+    }
+
+    [Fact]
+    public async Task Post_Endpoint_SetsFinalStatus_WhenEmailSendsOnLastTry() {
+        // Arrange
+        using var client = _factory.CreateClient();
+
+        // Simulate a failure for the first two attempts, then succeed.
+        var attempt = 0;
+        _factory.EmailClient.Configure().SendAsync(default!, default).ReturnsForAnyArgs(callInfo => {
+            attempt++;
+            if (attempt == 3) {
+                // On the third attempt, clear the substitute so the final call will function normally.
+                _factory.EmailClient.ClearSubstitute();
+            }
+            throw new Exception("Simulated failure");
+        });
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/email", new {
+            To = "some@email.com",
+            Subject = "Test Subject 4",
+            Body = "Test Body"
+        });
+
+        response.EnsureSuccessStatusCode();
+        var emailId = await response.Content.ReadAsStringAsync();
+
+        // Wait for the email retries to complete. But bail out if not done after 5 seconds.
+        await _factory.Database.WaitForRetriesAsync(emailId,
+            cancellationToken: new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token);
+
+        // Assert
+        var savedEmail = await _factory.Database.GetEmailByIdAsync(emailId);
+        await Verify(new {
+            Sent = _factory.EmailClient.SentEmails.WithSubject("Test Subject 4"),
+            Saved = savedEmail
+        });
     }
 }

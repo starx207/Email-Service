@@ -46,3 +46,8 @@ public class FakeEmailClient : IEmailClient {
 }
 
 public record SentEmail(string To, string Subject, string Body);
+
+public static class SentEmailExtensions {
+    public static IEnumerable<SentEmail> WithSubject(this IEnumerable<SentEmail> sentEmails, string subject) 
+        => sentEmails.Where(email => email.Subject == subject);
+}

@@ -2,7 +2,7 @@
   Sent: [
     {
       To: some@email.com,
-      Subject: Test Subject 1,
+      Subject: Test Subject 4,
       Body: Test Body
     }
   ],
@@ -11,7 +11,8 @@
     Body: Test Body,
     Sender: {Configuration.Sender},
     Status: Delivered,
-    Subject: Test Subject 1,
+    Retries: 3,
+    Subject: Test Subject 4,
     Recipient: some@email.com,
     SubmittedOn: DateTime_1,
     DeliveryDate: DateTime_2,

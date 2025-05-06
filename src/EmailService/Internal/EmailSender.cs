@@ -30,34 +30,37 @@ internal sealed class EmailSender : IEmailSender {
         mailMessage.From.Add(new MimeKit.MailboxAddress(_emailConfig.Sender, _emailConfig.Sender));
         mailMessage.To.Add(new MimeKit.MailboxAddress(recipient, recipient));
 
-        var attempt = 0;
+        // Configure the retry policy for sending the email.
+        var delay = _emailConfig.RetryDelayTimeSpan;
         var retryPolicy = Policy.Handle<Exception>()
             .WaitAndRetryAsync(
                 retryCount: EmailConstants.MAX_RETIRES,
-                sleepDurationProvider: attempt => TimeSpan.FromMilliseconds(250 * Math.Pow(2, attempt - 1)),
+                sleepDurationProvider: attempt => delay * Math.Pow(2, attempt - 1),
                 onRetry: async (ex, _) => {
-                    attempt++; // Not sure this is the correct way to do this, but I can't find anything in the Context that would tell me the attempt number.
                     await _emailStore.RecordEmailFailedAsync(mailId, cancellationToken);
-                    if (attempt >= EmailConstants.MAX_RETIRES) {
-                        _logger?.LogEmailSendFailed(recipient, subject, ex);
-                    }
                 }
             );
 
-        try {
-            await retryPolicy.ExecuteAsync(async (token) => {
-                var socketOptions = SocketOptionsFrom(_emailConfig.SecureSocket);
-                await _emailClient.ConnectAsync(_emailConfig.Host, _emailConfig.Port, socketOptions, cancellationToken);
-                await _emailClient.AuthenticateAsync(_emailConfig.Sender, _emailConfig.Password, cancellationToken);
-                await _emailClient.SendAsync(mailMessage, cancellationToken);
-                await _emailClient.DisconnectAsync(true, cancellationToken);
+        // Configure the fallback policy for when all retries fail.
+        var fallbackPolicy = Policy.Handle<Exception>()
+            .FallbackAsync(
+                fallbackAction: _ => Task.CompletedTask,
+                onFallbackAsync: ex => {
+                    _logger?.LogEmailSendFailed(recipient, subject, ex);
+                    return Task.CompletedTask;
+                }
+            );
 
-                await _emailStore.RecordEmailSentAsync(mailId, cancellationToken);
-            }, cancellationToken);
-        } catch {
-            // If we still fail after all retries, just move on.
-            // We've already logged the error and updated the email status in the retry callback.
-        }
+        // Send the email with the retry and fallback policies applied.
+        await fallbackPolicy.WrapAsync(retryPolicy).ExecuteAsync(async (token) => {
+            var socketOptions = SocketOptionsFrom(_emailConfig.SecureSocket);
+            await _emailClient.ConnectAsync(_emailConfig.Host, _emailConfig.Port, socketOptions, token);
+            await _emailClient.AuthenticateAsync(_emailConfig.Sender, _emailConfig.Password, token);
+            await _emailClient.SendAsync(mailMessage, token);
+            await _emailClient.DisconnectAsync(true, token);
+
+            await _emailStore.RecordEmailSentAsync(mailId, token);
+        }, cancellationToken);
 
         return mailId.ToString();
     }
