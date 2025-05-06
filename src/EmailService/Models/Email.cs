@@ -1,7 +1,7 @@
 namespace EmailService.Models;
 
 public sealed class Email {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid Id { get; set; }
     public required string Sender { get; set; }
     public required string Recipient { get; set; }
     public string? Subject { get; set; }

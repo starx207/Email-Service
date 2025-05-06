@@ -2,6 +2,7 @@ using EmailService.Events;
 using EmailService.Internal;
 using MailKit.Net.Smtp;
 using Marten;
+using Marten.Events;
 using Marten.Events.Projections;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -30,6 +31,8 @@ public static class ServiceCollectionExtensions {
         services.AddMarten(options => {
 
             options.Connection(emailConfig.StoreConnectionString);
+
+            options.Events.AppendMode = EventAppendMode.Quick;
 
             options.Events.AddEventType<EmailSubmitted>();
             options.Events.AddEventType<EmailSendAttemptFailed>();

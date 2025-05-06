@@ -21,48 +21,53 @@ internal sealed class EmailSender : IEmailSender {
         => _logger = logger;
 
     public async Task<string> SendAsync(string recipient, string subject, string message, CancellationToken cancellationToken = default) {
-        var mailId = await _emailStore.SubmitEmailAsync(recipient, subject, message, cancellationToken);
+        try {
+            var mailId = _emailStore.SubmitEmail(recipient, subject, message);
 
-        var mailMessage = new MimeKit.MimeMessage {
-            Subject = subject,
-            Body = new MimeKit.TextPart(MimeKit.Text.TextFormat.Plain) { Text = message }
-        };
-        mailMessage.From.Add(new MimeKit.MailboxAddress(_emailConfig.Sender, _emailConfig.Sender));
-        mailMessage.To.Add(new MimeKit.MailboxAddress(recipient, recipient));
+            var mailMessage = new MimeKit.MimeMessage {
+                Subject = subject,
+                Body = new MimeKit.TextPart(MimeKit.Text.TextFormat.Plain) { Text = message }
+            };
+            mailMessage.From.Add(new MimeKit.MailboxAddress(_emailConfig.Sender, _emailConfig.Sender));
+            mailMessage.To.Add(new MimeKit.MailboxAddress(recipient, recipient));
 
-        // Configure the retry policy for sending the email.
-        var delay = _emailConfig.RetryDelayTimeSpan;
-        var retryPolicy = Policy.Handle<Exception>()
-            .WaitAndRetryAsync(
-                retryCount: EmailConstants.MAX_RETIRES,
-                sleepDurationProvider: attempt => delay * Math.Pow(2, attempt - 1),
-                onRetry: async (ex, _) => {
-                    await _emailStore.RecordEmailFailedAsync(mailId, cancellationToken);
-                }
-            );
+            // Configure the retry policy for sending the email.
+            var delay = _emailConfig.RetryDelayTimeSpan;
+            var retryPolicy = Policy.Handle<Exception>()
+                .WaitAndRetryAsync(
+                    retryCount: EmailConstants.MAX_RETIRES,
+                    sleepDurationProvider: attempt => delay * Math.Pow(2, attempt - 1),
+                    onRetry: (_, _) => {
+                        _emailStore.RecordEmailFailed(mailId);
+                    }
+                );
 
-        // Configure the fallback policy for when all retries fail.
-        var fallbackPolicy = Policy.Handle<Exception>()
-            .FallbackAsync(
-                fallbackAction: _ => Task.CompletedTask,
-                onFallbackAsync: ex => {
-                    _logger?.LogEmailSendFailed(recipient, subject, ex);
-                    return Task.CompletedTask;
-                }
-            );
+            // Configure the fallback policy for when all retries fail.
+            var fallbackPolicy = Policy.Handle<Exception>()
+                .FallbackAsync(
+                    fallbackAction: _ => Task.CompletedTask,
+                    onFallbackAsync: ex => {
+                        _emailStore.RecordEmailFailed(mailId);
+                        _logger?.LogEmailSendFailed(recipient, subject, ex);
+                        return Task.CompletedTask;
+                    }
+                );
 
-        // Send the email with the retry and fallback policies applied.
-        await fallbackPolicy.WrapAsync(retryPolicy).ExecuteAsync(async (token) => {
-            var socketOptions = SocketOptionsFrom(_emailConfig.SecureSocket);
-            await _emailClient.ConnectAsync(_emailConfig.Host, _emailConfig.Port, socketOptions, token);
-            await _emailClient.AuthenticateAsync(_emailConfig.Sender, _emailConfig.Password, token);
-            await _emailClient.SendAsync(mailMessage, token);
-            await _emailClient.DisconnectAsync(true, token);
+            // Send the email with the retry and fallback policies applied.
+            await fallbackPolicy.WrapAsync(retryPolicy).ExecuteAsync(async (token) => {
+                var socketOptions = SocketOptionsFrom(_emailConfig.SecureSocket);
+                await _emailClient.ConnectAsync(_emailConfig.Host, _emailConfig.Port, socketOptions, token);
+                await _emailClient.AuthenticateAsync(_emailConfig.Sender, _emailConfig.Password, token);
+                await _emailClient.SendAsync(mailMessage, token);
+                await _emailClient.DisconnectAsync(true, token);
 
-            await _emailStore.RecordEmailSentAsync(mailId, token);
-        }, cancellationToken);
+                _emailStore.RecordEmailSent(mailId);
+            }, cancellationToken);
 
-        return mailId.ToString();
+            return mailId.ToString();
+        } finally {
+            await _emailStore.SaveEventsAsync(cancellationToken);
+        }
     }
 
     public static SecureSocketOptions SocketOptionsFrom(string configuredValue)

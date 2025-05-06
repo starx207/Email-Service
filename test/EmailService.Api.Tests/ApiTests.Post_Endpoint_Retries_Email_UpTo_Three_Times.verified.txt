@@ -1,11 +1,25 @@
 ﻿{
-  Id: Guid_1,
-  Body: Test Body,
-  Sender: {Configuration.Sender},
-  Status: Undeliverable,
-  Retries: 3,
-  Subject: Test Subject 2,
-  Recipient: some@email.com,
-  SubmittedOn: DateTime_1,
-  LastSendAttempt: DateTime_2
+  Saved: {
+    Id: Guid_1,
+    Body: Test Body,
+    Sender: {Configuration.Sender},
+    Status: Undeliverable,
+    Retries: 3,
+    Subject: Test Subject 2,
+    Recipient: some@email.com,
+    SubmittedOn: DateTime_1,
+    LastSendAttempt: DateTime_2
+  },
+  Logs: [
+    {
+      LogLevel: Error,
+      Message: Failed to send email to some@email.com with subject Test Subject 2,
+      Exception: {
+        $type: Exception,
+        Type: Exception,
+        Message: Simulated failure,
+        StackTrace: {Scrubbed}
+      }
+    }
+  ]
 }

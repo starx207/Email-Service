@@ -7,18 +7,33 @@ using RegistryConstants = ServiceRegistryModules.ServiceRegistryModulesDefaults;
 using EmailService.Api.IoC;
 using Testcontainers.PostgreSql;
 using Npgsql;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace EmailService.Api.Tests;
 
-public sealed class EmailApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime {
-    private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder()
+public sealed class EmailApplicationDatabaseProvider : IAsyncLifetime {
+    public PostgreSqlContainer DbContainer { get; } = new PostgreSqlBuilder()
         .WithDatabase("EmailServiceDb")
         .WithUsername("emailapitestuser")
         .WithPassword("emailapitestpassword")
         .Build();
 
+    public async Task InitializeAsync() => await DbContainer.StartAsync();
+    async Task IAsyncLifetime.DisposeAsync() => await DbContainer.StopAsync();
+}
+
+public sealed class EmailApplicationFactory : WebApplicationFactory<Program> {
+    private readonly PostgreSqlContainer _dbContainer;
+
+    public EmailApplicationFactory(EmailApplicationDatabaseProvider dbProvider) : base() {
+        _dbContainer = dbProvider.DbContainer;
+        Database = new EmailDatabase(_dbContainer.GetConnectionString());
+    }
+
     public FakeEmailClient EmailClient { get; private set; } = null!;
-    public EmailDatabase Database { get; private set; } = null!;
+    public TestEmailLogger Logger { get; } = new TestEmailLogger();
+    public EmailDatabase Database { get; } = null!;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder) {
         // Additional configuration before services are registered.
@@ -42,17 +57,12 @@ public sealed class EmailApplicationFactory : WebApplicationFactory<Program>, IA
             EmailClient = (FakeEmailClient)serviceProvider.GetRequiredService<IEmailClient>();
             EmailClient.Configuration = serviceProvider.GetRequiredService<EmailConfiguration>();
             Database.Configuration = EmailClient.Configuration;
+
+            services.TryAddEnumerable(
+                ServiceDescriptor.Singleton<ILoggerProvider>(new TestEmailLoggerProvider(Logger))
+            );
         });
     }
-
-    #region IAsyncLifetime
-    public async Task InitializeAsync() {
-        await _dbContainer.StartAsync();
-        Database = new EmailDatabase(_dbContainer.GetConnectionString());
-    }
-
-    async Task IAsyncLifetime.DisposeAsync() => await _dbContainer.StopAsync();
-    #endregion
 
     #region Database Helpers
     public class EmailDatabase {
@@ -75,23 +85,29 @@ public sealed class EmailApplicationFactory : WebApplicationFactory<Program>, IA
             return email;
         }
 
-        public async Task WaitForRetriesAsync(string emailId, TimeSpan? delay = null, CancellationToken cancellationToken = default) {
+        public async Task WaitForRetriesAsync(string emailId, TimeSpan? pollingInterval = null, TimeSpan? cancellationTimeout = null) {
             if (!Guid.TryParse(emailId, out var id)) {
                 return;
             }
-            delay ??= TimeSpan.FromMilliseconds(100);
+            pollingInterval ??= TimeSpan.FromMilliseconds(250);
 
-            await using var connection = await OpenConnectionAsync(cancellationToken);
+            await using var connection = await OpenConnectionAsync();
             await using var command = CreateGetEmailByIdCommand(id, connection);
-            while (!cancellationToken.IsCancellationRequested) {
+            var cancellationToken = new CancellationTokenSource(cancellationTimeout ?? TimeSpan.FromSeconds(10)).Token;
+
+            while (true) {
+                if (cancellationToken.IsCancellationRequested) {
+                    throw new Exception("Email status not resolved within the timeout period.");
+                }
+
                 try {
                     var email = await GetEmailFromCommandAsync(command, cancellationToken);
                     if (email is { } && (email.Status == EmailStatus.Delivered || email.Status == EmailStatus.Undeliverable)) {
                         break;
                     }
-                    await Task.Delay(delay.Value, cancellationToken);
-                } catch (TaskCanceledException) {
-                    break;
+                    await Task.Delay(pollingInterval.Value, cancellationToken);
+                } catch (TaskCanceledException tce) {
+                    throw new Exception("Email status not resolved within the timeout period.", tce);
                 }
             }
         }

@@ -13,22 +13,22 @@ internal sealed class EmailEventStore : IEmailEventStore {
         _emailConfig = emailConfig;
     }
 
-    public async Task<Guid> SubmitEmailAsync(string recipient, string subject, string body, CancellationToken cancellationToken) {
-        var submitted = new EmailSubmitted(Guid.NewGuid(), _emailConfig.Sender, recipient, subject, body, DateTime.UtcNow);
-        var streamId = _session.Events.StartStream<Email>(submitted.EmailId, submitted).Id;
-        await _session.SaveChangesAsync(cancellationToken);
+    public Guid SubmitEmail(string recipient, string subject, string body) {
+        var submitted = new EmailSubmitted(_emailConfig.Sender, recipient, subject, body, DateTime.UtcNow);
+        var streamId = _session.Events.StartStream<Email>(submitted).Id;
         return streamId;
     }
 
-    public async Task RecordEmailSentAsync(Guid emailId, CancellationToken cancellationToken) {
-        var sent = new EmailSent(emailId, DateTime.UtcNow);
+    public void RecordEmailSent(Guid emailId) {
+        var sent = new EmailSent(DateTime.UtcNow);
         _session.Events.Append(emailId, sent);
-        await _session.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task RecordEmailFailedAsync(Guid emailId, CancellationToken cancellationToken) {
-        var failed = new EmailSendAttemptFailed(emailId, DateTime.UtcNow);
+    public void RecordEmailFailed(Guid emailId) {
+        var failed = new EmailSendAttemptFailed(DateTime.UtcNow);
         _session.Events.Append(emailId, failed);
-        await _session.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task SaveEventsAsync(CancellationToken cancellationToken)
+        => await _session.SaveChangesAsync(cancellationToken);
 }

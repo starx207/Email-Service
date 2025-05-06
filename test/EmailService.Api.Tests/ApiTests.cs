@@ -8,10 +8,10 @@ using System.Net.Http.Json;
 
 namespace EmailService.Api.Tests;
 
-public class ApiTests : VerifyBase, IClassFixture<EmailApplicationFactory> {
+public class ApiTests : VerifyBase, IClassFixture<EmailApplicationDatabaseProvider> {
     private readonly EmailApplicationFactory _factory;
 
-    public ApiTests(EmailApplicationFactory factory) : base() => _factory = factory;
+    public ApiTests(EmailApplicationDatabaseProvider dbProvider) : base() => _factory = new(dbProvider);
 
     // TODO: Once I implement the async nature of the email client, I would hope for this test to fail.
     //       I'll then need to refactor it to poll the API for the email status.
@@ -34,7 +34,8 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationFactory> {
         var savedEmail = await _factory.Database.GetEmailByIdAsync(emailId);
         await Verify(new {
             Sent = _factory.EmailClient.SentEmails.WithSubject("Test Subject 1"),
-            Saved = savedEmail
+            Saved = savedEmail,
+            Logs = _factory.Logger.LogEntries
         });
     }
 
@@ -44,7 +45,7 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationFactory> {
         using var client = _factory.CreateClient();
 
         // Simulate a failure when trying to send the email.
-        _factory.EmailClient.Configure().SendAsync(default!, default).ThrowsAsyncForAnyArgs<Exception>();
+        _factory.EmailClient.Configure().SendAsync(default!, default).ThrowsAsyncForAnyArgs(new Exception("Simulated failure"));
 
         // Act
         var response = await client.PostAsJsonAsync("/api/email", new {
@@ -56,13 +57,15 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationFactory> {
         response.EnsureSuccessStatusCode();
         var emailId = await response.Content.ReadAsStringAsync();
 
-        // Wait for the email retries to complete. But bail out if not done after 5 seconds.
-        await _factory.Database.WaitForRetriesAsync(emailId,
-            cancellationToken: new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token);
+        // Wait for the email retries to complete.
+        await _factory.Database.WaitForRetriesAsync(emailId);
 
         // Assert
         var savedEmail = await _factory.Database.GetEmailByIdAsync(emailId);
-        await Verify(savedEmail);
+        await Verify(new {
+            Saved = savedEmail,
+            Logs = _factory.Logger.LogEntries
+        });
     }
 
     [Fact]
@@ -70,16 +73,10 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationFactory> {
         // Arrange
         using var client = _factory.CreateClient();
 
-        // Simulate a failure for the first two attempts, then succeed.
-        var attempt = 0;
-        _factory.EmailClient.Configure().SendAsync(default!, default).ReturnsForAnyArgs(callInfo => {
-            attempt++;
-            if (attempt == 2) {
-                // On the second attempt, clear the substitute so the next call will function normally.
-                _factory.EmailClient.ClearSubstitute();
-            }
-            throw new Exception("Simulated failure");
-        });
+        // Simulate a failure for the initial attempt and first retry, then succeed.
+        _factory.EmailClient.WhenForAnyArgs(x => x.SendAsync(default!, default))
+            .Do(Callback.FirstThrow(new Exception("Simulated failure"))
+                .ThenThrow(new Exception("Simulated failure")));
 
         // Act
         var response = await client.PostAsJsonAsync("/api/email", new {
@@ -91,15 +88,15 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationFactory> {
         response.EnsureSuccessStatusCode();
         var emailId = await response.Content.ReadAsStringAsync();
 
-        // Wait for the email retries to complete. But bail out if not done after 5 seconds.
-        await _factory.Database.WaitForRetriesAsync(emailId,
-            cancellationToken: new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token);
+        // Wait for the email retries to complete.
+        await _factory.Database.WaitForRetriesAsync(emailId);
 
         // Assert
         var savedEmail = await _factory.Database.GetEmailByIdAsync(emailId);
         await Verify(new {
             Sent = _factory.EmailClient.SentEmails.WithSubject("Test Subject 3"),
-            Saved = savedEmail
+            Saved = savedEmail,
+            Logs = _factory.Logger.LogEntries
         });
     }
 
@@ -108,16 +105,11 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationFactory> {
         // Arrange
         using var client = _factory.CreateClient();
 
-        // Simulate a failure for the first two attempts, then succeed.
-        var attempt = 0;
-        _factory.EmailClient.Configure().SendAsync(default!, default).ReturnsForAnyArgs(callInfo => {
-            attempt++;
-            if (attempt == 3) {
-                // On the third attempt, clear the substitute so the final call will function normally.
-                _factory.EmailClient.ClearSubstitute();
-            }
-            throw new Exception("Simulated failure");
-        });
+        // Simulate a failure for the initial attempt and first two retries, then succeed.
+        _factory.EmailClient.WhenForAnyArgs(x => x.SendAsync(default!, default))
+            .Do(Callback.FirstThrow(new Exception("Simulated failure"))
+                .ThenThrow(new Exception("Simulated failure"))
+                .ThenThrow(new Exception("Simulated failure")));
 
         // Act
         var response = await client.PostAsJsonAsync("/api/email", new {
@@ -129,15 +121,15 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationFactory> {
         response.EnsureSuccessStatusCode();
         var emailId = await response.Content.ReadAsStringAsync();
 
-        // Wait for the email retries to complete. But bail out if not done after 5 seconds.
-        await _factory.Database.WaitForRetriesAsync(emailId,
-            cancellationToken: new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token);
+        // Wait for the email retries to complete.
+        await _factory.Database.WaitForRetriesAsync(emailId);
 
         // Assert
         var savedEmail = await _factory.Database.GetEmailByIdAsync(emailId);
         await Verify(new {
             Sent = _factory.EmailClient.SentEmails.WithSubject("Test Subject 4"),
-            Saved = savedEmail
+            Saved = savedEmail,
+            Logs = _factory.Logger.LogEntries
         });
     }
 }

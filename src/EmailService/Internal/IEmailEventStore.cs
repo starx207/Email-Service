@@ -1,7 +1,9 @@
 namespace EmailService.Internal;
 
 internal interface IEmailEventStore {
-    Task<Guid> SubmitEmailAsync(string recipient, string subject, string body, CancellationToken cancellationToken);
-    Task RecordEmailSentAsync(Guid emailId, CancellationToken cancellationToken);
-    Task RecordEmailFailedAsync(Guid emailId, CancellationToken cancellationToken);
+    Guid SubmitEmail(string recipient, string subject, string body);
+    void RecordEmailSent(Guid emailId);
+    void RecordEmailFailed(Guid emailId);
+
+    Task SaveEventsAsync(CancellationToken cancellationToken);
 }
