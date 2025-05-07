@@ -2,7 +2,7 @@ using EmailService.Events;
 using EmailService.Models;
 using Marten;
 
-namespace EmailService.Internal;
+namespace EmailService.Internal.Repositories;
 
 internal sealed class EmailEventStore : IEmailEventStore {
     private readonly IDocumentSession _session;

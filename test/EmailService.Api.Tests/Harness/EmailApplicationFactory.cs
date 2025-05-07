@@ -1,4 +1,3 @@
-using EmailService.Internal;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,8 +8,9 @@ using Testcontainers.PostgreSql;
 using Npgsql;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using EmailService.Internal.Services;
 
-namespace EmailService.Api.Tests;
+namespace EmailService.Api.Tests.Harness;
 
 public sealed class EmailApplicationDatabaseProvider : IAsyncLifetime {
     public PostgreSqlContainer DbContainer { get; } = new PostgreSqlBuilder()

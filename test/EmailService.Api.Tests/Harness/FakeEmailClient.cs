@@ -1,9 +1,9 @@
-using EmailService.Internal;
+using EmailService.Internal.Services;
 using MailKit.Security;
 using MimeKit;
 using NSubstitute.Core;
 
-namespace EmailService.Api.Tests;
+namespace EmailService.Api.Tests.Harness;
 
 public class FakeEmailClient : IEmailClient {
     private bool _authenticated;

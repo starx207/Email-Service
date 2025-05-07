@@ -10,7 +10,7 @@ public static class SendEmailEndpoint {
     => app.MapPost(ApiEndpoints.Email.SEND, async (IEmailService emailService, SendEmailRequest request, CancellationToken token) => {
         var emailId = await emailService.SendEmailAsync(request.To, request.Subject, request.Body, token);
 
-        return Results.Text(emailId);
+        return Results.Text(emailId.ToString());
     })
         .WithName(NAME)
         .Produces<string>(StatusCodes.Status200OK, MediaTypeNames.Text.Plain)

@@ -1,9 +1,11 @@
 using System.Threading.Channels;
 using EmailService.Internal.Dto;
+using EmailService.Internal.Repositories;
+using EmailService.Internal.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace EmailService.Internal;
+namespace EmailService.Internal.Processors;
 
 internal sealed class EmailQueueProcessor : BackgroundService {
     private readonly Channel<EmailQueued> _submittedChannel;
@@ -15,6 +17,18 @@ internal sealed class EmailQueueProcessor : BackgroundService {
         _assignedChannel = assignedChannel;
         _serviceProvider = serviceProvider;
     }
+
+    // TODO: Probably should have another hosted service that will check the database for emails that
+    //       need to be retried. It could just run every couple of hours or so.
+    //       It would look for emails with a status of "pending" or "failed" that are older than a certain
+    //       amount of time. It would then submit them to the queue again.
+    //       For this to work, we would need to include the current retry attempt of the email when sending
+    //       it to the queue. The email sender would then need to accept the retry attempt and modify the
+    //       retry policy to only retry the max number of times minus the current attempt.
+    //       If only one attemp is left, we could bypass the retry policy creation.
+    //
+    //       The reason for needing this is if the email service is down for a period of time and the in-flight
+    //       emails are left in a "pending" or "failed" state (i.e. the retry policy was interrupted).
 
     // TODO: A good future enhancement would be to allow this to process emails in parallel. Right now,
     //       it only does one at a time (including the retry logic). This is a good start though.

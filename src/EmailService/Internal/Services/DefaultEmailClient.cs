@@ -2,7 +2,7 @@ using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
 
-namespace EmailService.Internal;
+namespace EmailService.Internal.Services;
 
 // This class is just a wrapper for MailKit ISmtpClient.
 // The primary reason for this is so we provide alernate implementations of IEmailClient

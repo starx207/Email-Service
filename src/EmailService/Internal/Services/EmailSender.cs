@@ -1,8 +1,10 @@
+using EmailService.Internal.Extensions;
+using EmailService.Internal.Repositories;
 using MailKit.Security;
 using Microsoft.Extensions.Logging;
 using Polly;
 
-namespace EmailService.Internal;
+namespace EmailService.Internal.Services;
 
 internal sealed class EmailSender : IEmailSender {
     private readonly IEmailClient _emailClient;
@@ -30,26 +32,9 @@ internal sealed class EmailSender : IEmailSender {
             mailMessage.To.Add(new MimeKit.MailboxAddress(recipient, recipient));
 
             // Configure the retry policy for sending the email.
-            var delay = _emailConfig.RetryDelayTimeSpan;
-            var retryPolicy = Policy.Handle<Exception>()
-                .WaitAndRetryAsync(
-                    retryCount: EmailConstants.MAX_RETIRES,
-                    sleepDurationProvider: attempt => delay * Math.Pow(2, attempt - 1),
-                    onRetry: (_, _) => {
-                        _emailStore.RecordEmailFailed(emailId);
-                    }
-                );
-
+            var retryPolicy = CreateRetryPolicy(emailId);
             // Configure the fallback policy for when all retries fail.
-            var fallbackPolicy = Policy.Handle<Exception>()
-                .FallbackAsync(
-                    fallbackAction: _ => Task.CompletedTask,
-                    onFallbackAsync: ex => {
-                        _emailStore.RecordEmailFailed(emailId);
-                        _logger?.LogEmailSendFailed(recipient, subject, ex);
-                        return Task.CompletedTask;
-                    }
-                );
+            var fallbackPolicy = CreateFallbackPolicy(emailId, recipient, subject);
 
             // Send the email with the retry and fallback policies applied.
             await fallbackPolicy.WrapAsync(retryPolicy).ExecuteAsync(async (token) => {
@@ -68,4 +53,27 @@ internal sealed class EmailSender : IEmailSender {
 
     public static SecureSocketOptions SocketOptionsFrom(string configuredValue)
         => Enum.TryParse<SecureSocketOptions>(configuredValue, ignoreCase: true, out var sso) ? sso : SecureSocketOptions.Auto;
+
+    private IAsyncPolicy CreateFallbackPolicy(Guid emailId, string recipient, string subject)
+        => Policy.Handle<Exception>()
+        .FallbackAsync(
+            fallbackAction: _ => Task.CompletedTask,
+            onFallbackAsync: ex => {
+                _emailStore.RecordEmailFailed(emailId);
+                _logger?.LogEmailSendFailed(recipient, subject, ex);
+                return Task.CompletedTask;
+            }
+        );
+
+    private IAsyncPolicy CreateRetryPolicy(Guid emailId) {
+        var delay = _emailConfig.RetryDelayTimeSpan;
+        return Policy.Handle<Exception>()
+            .WaitAndRetryAsync(
+                retryCount: EmailConstants.MAX_RETIRES,
+                sleepDurationProvider: attempt => delay * Math.Pow(2, attempt - 1),
+                onRetry: (_, _) => {
+                    _emailStore.RecordEmailFailed(emailId);
+                }
+            );
+    }
 }

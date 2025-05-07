@@ -1,4 +1,4 @@
-namespace EmailService.Api.Tests;
+namespace EmailService.Api.Tests.Configuration;
 
 public class VerifyTests {
     [Fact]

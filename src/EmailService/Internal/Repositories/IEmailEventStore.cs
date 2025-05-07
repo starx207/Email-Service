@@ -1,4 +1,4 @@
-namespace EmailService.Internal;
+namespace EmailService.Internal.Repositories;
 
 internal interface IEmailEventStore {
     Guid SubmitEmail(string recipient, string subject, string body);

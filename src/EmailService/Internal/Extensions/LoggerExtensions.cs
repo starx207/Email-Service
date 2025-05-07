@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace EmailService.Internal;
+namespace EmailService.Internal.Extensions;
 
 internal static partial class LoggerExtensions {
     

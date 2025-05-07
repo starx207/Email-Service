@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace EmailService.Api.Tests;
+namespace EmailService.Api.Tests.Harness;
 
 public class EmailEntityDto {
     public Guid Id { get; set; }

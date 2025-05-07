@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace EmailService.Api.Tests;
+namespace EmailService.Api.Tests.Harness;
 
 public record TestLogEntry(LogLevel LogLevel, string Message, Exception? Exception = null);
 

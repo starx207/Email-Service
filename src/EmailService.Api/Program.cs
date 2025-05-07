@@ -12,9 +12,5 @@ builder.ApplyRegistries(config => config
 var app = builder.Build();
 
 app.UseAppExceptionHandling();
-
-// Define a minimal API endpoint
 app.MapEndpoints();
-app.MapGet("/", () => "Welcome to EmailService API!");
-
 app.Run();

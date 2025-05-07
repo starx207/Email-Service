@@ -1,3 +1,4 @@
+using EmailService.Api.Tests.Harness;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using NSubstitute.Extensions;
@@ -7,13 +8,13 @@ using System.Net.Http.Json;
 
 namespace EmailService.Api.Tests;
 
-public class ApiTests : VerifyBase, IClassFixture<EmailApplicationDatabaseProvider> {
+public class Endpoint_Email_Post : VerifyBase, IClassFixture<EmailApplicationDatabaseProvider> {
     private readonly EmailApplicationFactory _factory;
 
-    public ApiTests(EmailApplicationDatabaseProvider dbProvider) : base() => _factory = new(dbProvider);
+    public Endpoint_Email_Post(EmailApplicationDatabaseProvider dbProvider) : base() => _factory = new(dbProvider);
 
     [Fact]
-    public async Task Post_Endpoint_Sends_Email() {
+    public async Task Should_Send_Email() {
         // Arrange
         using var client = _factory.CreateClient();
 
@@ -39,7 +40,7 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationDatabaseProvid
     }
 
     [Fact]
-    public async Task Post_Endpoint_Retries_Email_UpTo_Three_Times() {
+    public async Task Should_Retry_Email_UpTo_Three_Times() {
         // Arrange
         using var client = _factory.CreateClient();
 
@@ -68,7 +69,7 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationDatabaseProvid
     }
 
     [Fact]
-    public async Task Post_Endpoint_StopsRetries_Once_Email_Sends() {
+    public async Task Should_Stop_Retries_Once_Email_Sends() {
         // Arrange
         using var client = _factory.CreateClient();
 
@@ -100,7 +101,7 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationDatabaseProvid
     }
 
     [Fact]
-    public async Task Post_Endpoint_SetsFinalStatus_WhenEmailSendsOnLastTry() {
+    public async Task Should_SetFinalStatus_WhenEmailSendsOnLastTry() {
         // Arrange
         using var client = _factory.CreateClient();
 
@@ -133,7 +134,7 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationDatabaseProvid
     }
 
     [Fact]
-    public async Task Post_Endpoint_ShouldReturn_WithoutWaitingForEmailToSend() {
+    public async Task ShouldReturn_WithoutWaitingForEmailToSend() {
         // Arrange
         using var client = _factory.CreateClient();
 

@@ -1,7 +1,7 @@
 using MailKit.Security;
 using MimeKit;
 
-namespace EmailService.Internal;
+namespace EmailService.Internal.Services;
 
 internal interface IEmailClient {
     Task ConnectAsync(string host, int port, SecureSocketOptions socketOptions, CancellationToken cancellationToken = default);

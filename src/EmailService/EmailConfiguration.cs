@@ -1,4 +1,5 @@
-using EmailService.Internal;
+using EmailService.Internal.Extensions;
+using EmailService.Internal.Services;
 
 namespace EmailService;
 
@@ -12,7 +13,7 @@ public sealed class EmailConfiguration {
     public string? RetryDelay { get; set; }
     internal IEmailClient? CustomClientOverride { get; set; }
 
-    public TimeSpan RetryDelayTimeSpan => string.IsNullOrEmpty(RetryDelay)
+    internal TimeSpan RetryDelayTimeSpan => string.IsNullOrEmpty(RetryDelay)
         ? TimeSpan.FromSeconds(15)
         : RetryDelay.ToTimeSpan();
 }
