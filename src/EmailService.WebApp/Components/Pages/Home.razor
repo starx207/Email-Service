@@ -8,44 +8,44 @@
 
 <PageTitle>Home</PageTitle>
 
-<h3>Compose Email</h3>
 
 <div class="main">
+    <h2>Compose Email</h2>
     <EditForm EditContext="editContext" OnValidSubmit="SendEmail" FormName="SendEmailForm">
         <div class="form-field">
             <label>To:</label>
             <div>
-                <InputText @bind-Value="Email!.Recipient" />
-                <ValidationMessage For="@(() => Email.Recipient)" />
+                <InputText class="form-control" @bind-Value="Email!.Recipient" />
+                <ValidationMessage class="validation-message" For="@(() => Email.Recipient)" />
             </div>
         </div>
 
         <div class="form-field">
             <label>Subject:</label>
             <div>
-                <InputText @bind-Value="Email.Subject" />
-                <ValidationMessage For="@(() => Email.Subject)" />
+                <InputText class="form-control" @bind-Value="Email.Subject" />
+                <ValidationMessage class="validation-message" For="@(() => Email.Subject)" />
             </div>
         </div>
 
         <div class="form-field">
             <label>Message:</label>
             <div>
-                <InputTextArea @bind-Value="Email.Body" />
-                <ValidationMessage For="@(() => Email.Body)" />
+                <InputTextArea class="form-control" @bind-Value="Email.Body" />
+                <ValidationMessage class="validation-message" For="@(() => Email.Body)" />
             </div>
         </div>
 
-        <button type="submit">Send Email</button>
+        <button type="submit" class="btn btn-primary">Send Email</button>
 
         <DataAnnotationsValidator />
     </EditForm>
-</div>
-
 @if (!string.IsNullOrEmpty(StatusMessage))
 {
     <p>@StatusMessage</p>
 }
+</div>
+
 
 @code {
     [SupplyParameterFromForm]
