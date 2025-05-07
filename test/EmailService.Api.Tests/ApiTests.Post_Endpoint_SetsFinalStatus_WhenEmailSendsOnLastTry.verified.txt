@@ -10,7 +10,7 @@
     Id: Guid_1,
     Body: Test Body,
     Sender: {Configuration.Sender},
-    Status: Delivered,
+    StatusName: Delivered,
     Retries: 3,
     Subject: Test Subject 4,
     Recipient: some@email.com,

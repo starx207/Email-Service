@@ -3,7 +3,7 @@
     Id: Guid_1,
     Body: Test Body,
     Sender: {Configuration.Sender},
-    Status: Undeliverable,
+    StatusName: Undeliverable,
     Retries: 3,
     Subject: Test Subject 2,
     Recipient: some@email.com,

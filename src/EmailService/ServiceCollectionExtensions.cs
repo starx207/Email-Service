@@ -1,5 +1,7 @@
+using System.Threading.Channels;
 using EmailService.Events;
 using EmailService.Internal;
+using EmailService.Internal.Dto;
 using MailKit.Net.Smtp;
 using Marten;
 using Marten.Events;
@@ -25,8 +27,9 @@ public static class ServiceCollectionExtensions {
             services.AddTransient<IEmailClient>(_ => new DefaultEmailClient(new SmtpClient()));
         }
 
-        services.AddTransient<IEmailSender, EmailSender>();
-        services.AddTransient<IEmailEventStore, EmailEventStore>();
+        services.AddTransient<IEmailService, Internal.EmailService>();
+        services.AddTransient<Internal.IEmailSender, EmailSender>();
+        services.AddScoped<IEmailEventStore, EmailEventStore>();
 
         services.AddMarten(options => {
 
@@ -41,7 +44,21 @@ public static class ServiceCollectionExtensions {
             options.Projections.Add<EmailProjection>(ProjectionLifecycle.Inline);
 
         }).UseLightweightSessions()
-        .OptimizeArtifactWorkflow();
+        .OptimizeArtifactWorkflow()
+        // TODO: Realistically, I wouldn't do this unless running in development. Production db changes ought to be handled differently
+        .ApplyAllDatabaseChangesOnStartup();
+
+        services.AddSingleton(_ => Channel.CreateUnbounded<EmailQueued>(new UnboundedChannelOptions {
+            SingleReader = true,
+            SingleWriter = false,
+            AllowSynchronousContinuations = false
+        }));
+        services.AddSingleton(_ => Channel.CreateUnbounded<EmailIdAssigned>(new UnboundedChannelOptions {
+            SingleReader = false,
+            SingleWriter = false,
+            AllowSynchronousContinuations = false
+        }));
+        services.AddHostedService<EmailQueueProcessor>();
 
         return services;
     }

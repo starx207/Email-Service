@@ -20,10 +20,8 @@ internal sealed class EmailSender : IEmailSender {
         : this(emailClient, emailConfig, emailStore)
         => _logger = logger;
 
-    public async Task<string> SendAsync(string recipient, string subject, string message, CancellationToken cancellationToken = default) {
+    public async Task SendAsync(Guid emailId, string recipient, string subject, string message, CancellationToken cancellationToken = default) {
         try {
-            var mailId = _emailStore.SubmitEmail(recipient, subject, message);
-
             var mailMessage = new MimeKit.MimeMessage {
                 Subject = subject,
                 Body = new MimeKit.TextPart(MimeKit.Text.TextFormat.Plain) { Text = message }
@@ -38,7 +36,7 @@ internal sealed class EmailSender : IEmailSender {
                     retryCount: EmailConstants.MAX_RETIRES,
                     sleepDurationProvider: attempt => delay * Math.Pow(2, attempt - 1),
                     onRetry: (_, _) => {
-                        _emailStore.RecordEmailFailed(mailId);
+                        _emailStore.RecordEmailFailed(emailId);
                     }
                 );
 
@@ -47,7 +45,7 @@ internal sealed class EmailSender : IEmailSender {
                 .FallbackAsync(
                     fallbackAction: _ => Task.CompletedTask,
                     onFallbackAsync: ex => {
-                        _emailStore.RecordEmailFailed(mailId);
+                        _emailStore.RecordEmailFailed(emailId);
                         _logger?.LogEmailSendFailed(recipient, subject, ex);
                         return Task.CompletedTask;
                     }
@@ -61,10 +59,8 @@ internal sealed class EmailSender : IEmailSender {
                 await _emailClient.SendAsync(mailMessage, token);
                 await _emailClient.DisconnectAsync(true, token);
 
-                _emailStore.RecordEmailSent(mailId);
+                _emailStore.RecordEmailSent(emailId);
             }, cancellationToken);
-
-            return mailId.ToString();
         } finally {
             await _emailStore.SaveEventsAsync(cancellationToken);
         }

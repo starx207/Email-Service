@@ -1,8 +1,5 @@
-﻿namespace EmailService;
+﻿namespace EmailService.Internal;
 
 internal interface IEmailSender {
-    /// <summary>
-    /// Sends a message with retry logic
-    /// </summary>
     Task SendAsync(Guid emailId, string recipient, string subject, string message, CancellationToken cancellationToken = default);
 }

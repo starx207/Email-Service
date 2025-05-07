@@ -1,6 +1,7 @@
 using EmailService.Internal;
 using MailKit.Security;
 using MimeKit;
+using NSubstitute.Core;
 
 namespace EmailService.Api.Tests;
 
@@ -30,7 +31,13 @@ public class FakeEmailClient : IEmailClient {
         return Task.CompletedTask;
     }
 
-    public virtual Task SendAsync(MimeMessage message, CancellationToken cancellationToken = default) {
+    public virtual Task SendAsync(MimeMessage message, CancellationToken cancellationToken = default)
+        => SendInternalAsync(message, cancellationToken);
+
+    public Task SendInternalAsync(CallInfo callInfo)
+        => SendInternalAsync(callInfo.Arg<MimeMessage>(), callInfo.Arg<CancellationToken>());
+
+    public Task SendInternalAsync(MimeMessage message, CancellationToken cancellationToken = default) {
         if (!(_connected && _authenticated)) {
             throw new InvalidOperationException("Client is not connected or authenticated.");
         }
@@ -46,8 +53,3 @@ public class FakeEmailClient : IEmailClient {
 }
 
 public record SentEmail(string To, string Subject, string Body);
-
-public static class SentEmailExtensions {
-    public static IEnumerable<SentEmail> WithSubject(this IEnumerable<SentEmail> sentEmails, string subject) 
-        => sentEmails.Where(email => email.Subject == subject);
-}

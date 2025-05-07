@@ -1,0 +1,12 @@
+﻿{
+  EmailId: Guid_1,
+  Saved: {
+    Id: Guid_1,
+    Body: Test Body,
+    Sender: {Configuration.Sender},
+    StatusName: Pending,
+    Subject: Test Subject,
+    Recipient: some@email.com,
+    SubmittedOn: DateTime_1
+  }
+}

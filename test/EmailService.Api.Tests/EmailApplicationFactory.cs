@@ -79,10 +79,34 @@ public sealed class EmailApplicationFactory : WebApplicationFactory<Program> {
             await using var connection = await OpenConnectionAsync();
             await using var command = CreateGetEmailByIdCommand(id, connection);
             var email = await GetEmailFromCommandAsync(command);
-            if (scrubResult) {
-                ScrubEmail(email);
+            return scrubResult ? ScrubEmail(email) : email;
+        }
+
+        public async Task<EmailEntityDto?> GetEmailWhenReadyAsync(string emailId, TimeSpan? pollingInterval = null, TimeSpan? cancellationTimeout = null) {
+            if (!Guid.TryParse(emailId, out var id)) {
+                return null;
             }
-            return email;
+            pollingInterval ??= TimeSpan.FromMilliseconds(10);
+
+            await using var connection = await OpenConnectionAsync();
+            await using var command = CreateGetEmailByIdCommand(id, connection);
+            var cancellationToken = new CancellationTokenSource(cancellationTimeout ?? TimeSpan.FromMilliseconds(250)).Token;
+
+            while (true) {
+                if (cancellationToken.IsCancellationRequested) {
+                    throw new Exception("Email not added to db within the timeout period.");
+                }
+
+                try {
+                    var email = await GetEmailFromCommandAsync(command);
+                    if (email is { }) {
+                        return ScrubEmail(email);
+                    }
+                    await Task.Delay(pollingInterval.Value, cancellationToken);
+                } catch (TaskCanceledException tce) {
+                    throw new Exception("Email not added to db within the timeout period.", tce);
+                }
+            }
         }
 
         public async Task WaitForRetriesAsync(string emailId, TimeSpan? pollingInterval = null, TimeSpan? cancellationTimeout = null) {
@@ -101,7 +125,7 @@ public sealed class EmailApplicationFactory : WebApplicationFactory<Program> {
                 }
 
                 try {
-                    var email = await GetEmailFromCommandAsync(command, cancellationToken);
+                    var email = await GetEmailFromCommandAsync(command);
                     if (email is { } && (email.Status == EmailStatus.Delivered || email.Status == EmailStatus.Undeliverable)) {
                         break;
                     }
@@ -133,12 +157,7 @@ public sealed class EmailApplicationFactory : WebApplicationFactory<Program> {
             return command;
         }
 
-        private void ScrubEmail(EmailEntityDto? email) {
-            if (email is null) {
-                return;
-            }
-            email.ScrubSender(Configuration);
-        }
+        private EmailEntityDto? ScrubEmail(EmailEntityDto? email) => email?.ScrubSender(Configuration);
 
         private async Task<NpgsqlConnection> OpenConnectionAsync(CancellationToken cancellationToken = default) {
             var connection = new NpgsqlConnection(_connectionString);

@@ -7,8 +7,8 @@ public static class SendEmailEndpoint {
     public const string NAME = "SendEmail";
 
     public static void MapSendEmailEndpoint(this IEndpointRouteBuilder app)
-    => app.MapPost(ApiEndpoints.Email.SEND, async (HttpContext http, IEmailSender emailSender, SendEmailRequest request, CancellationToken token) => {
-        var emailId = await emailSender.SendAsync(request.To, request.Subject, request.Body, token);
+    => app.MapPost(ApiEndpoints.Email.SEND, async (IEmailService emailService, SendEmailRequest request, CancellationToken token) => {
+        var emailId = await emailService.SendEmailAsync(request.To, request.Subject, request.Body, token);
 
         return Results.Text(emailId);
     })

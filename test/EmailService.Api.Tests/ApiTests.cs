@@ -1,5 +1,4 @@
 using NSubstitute;
-using NSubstitute.ClearExtensions;
 using NSubstitute.ExceptionExtensions;
 using NSubstitute.Extensions;
 using Shouldly;
@@ -13,8 +12,6 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationDatabaseProvid
 
     public ApiTests(EmailApplicationDatabaseProvider dbProvider) : base() => _factory = new(dbProvider);
 
-    // TODO: Once I implement the async nature of the email client, I would hope for this test to fail.
-    //       I'll then need to refactor it to poll the API for the email status.
     [Fact]
     public async Task Post_Endpoint_Sends_Email() {
         // Arrange
@@ -31,9 +28,11 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationDatabaseProvid
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var emailId = await response.Content.ReadAsStringAsync();
 
+        await _factory.Database.WaitForRetriesAsync(emailId);
+
         var savedEmail = await _factory.Database.GetEmailByIdAsync(emailId);
         await Verify(new {
-            Sent = _factory.EmailClient.SentEmails.WithSubject("Test Subject 1"),
+            Sent = _factory.EmailClient.SentEmails,
             Saved = savedEmail,
             Logs = _factory.Logger.LogEntries
         });
@@ -94,7 +93,7 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationDatabaseProvid
         // Assert
         var savedEmail = await _factory.Database.GetEmailByIdAsync(emailId);
         await Verify(new {
-            Sent = _factory.EmailClient.SentEmails.WithSubject("Test Subject 3"),
+            Sent = _factory.EmailClient.SentEmails,
             Saved = savedEmail,
             Logs = _factory.Logger.LogEntries
         });
@@ -127,8 +126,39 @@ public class ApiTests : VerifyBase, IClassFixture<EmailApplicationDatabaseProvid
         // Assert
         var savedEmail = await _factory.Database.GetEmailByIdAsync(emailId);
         await Verify(new {
-            Sent = _factory.EmailClient.SentEmails.WithSubject("Test Subject 4"),
+            Sent = _factory.EmailClient.SentEmails,
             Saved = savedEmail,
+            Logs = _factory.Logger.LogEntries
+        });
+    }
+
+    [Fact]
+    public async Task Post_Endpoint_ShouldReturn_WithoutWaitingForEmailToSend() {
+        // Arrange
+        using var client = _factory.CreateClient();
+
+        // Simulate an email taking a long time to send
+        _factory.EmailClient.Configure().SendAsync(default!, default).ReturnsForAnyArgs(async callInfo => {
+            await Task.Delay(TimeSpan.FromMinutes(1));
+            await _factory.EmailClient.SendInternalAsync(callInfo);
+        });
+
+        // Act
+        var response = Should.CompleteIn(async () => await client.PostAsJsonAsync("/api/email", new {
+            To = "some@email.com",
+            Subject = "Test Subject",
+            Body = "Test Body"
+        }), TimeSpan.FromSeconds(5));
+
+        response.EnsureSuccessStatusCode();
+        var emailId = await response.Content.ReadAsStringAsync();
+        var pendingEmail = await _factory.Database.GetEmailWhenReadyAsync(emailId);
+
+        // Assert
+        await Verify(new {
+            EmailId = emailId,
+            Sent = _factory.EmailClient.SentEmails,
+            Saved = pendingEmail,
             Logs = _factory.Logger.LogEntries
         });
     }

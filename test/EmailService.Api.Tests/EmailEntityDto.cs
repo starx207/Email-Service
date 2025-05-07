@@ -7,6 +7,7 @@ public class EmailEntityDto {
     public string? Body { get; set; }
     public string? Sender { get; set; }
     public EmailStatus Status { get; set; }
+    public string? StatusName { get; set; }
     public int Retries { get; set; }
     public string? Subject { get; set; }
     public string? Recipient { get; set; }
@@ -14,10 +15,12 @@ public class EmailEntityDto {
     public DateTime? DeliveryDate { get; set; }
     public DateTime? LastSendAttempt { get; set; }
 
-    public void ScrubSender(EmailConfiguration configuration)
-        => Sender = configuration.Sender.Equals(Sender, StringComparison.OrdinalIgnoreCase)
-        ? "{Configuration.Sender}"
-        : "{Unexpected Sender}";
+    public EmailEntityDto ScrubSender(EmailConfiguration configuration) {
+        Sender = configuration.Sender.Equals(Sender, StringComparison.OrdinalIgnoreCase)
+            ? "{Configuration.Sender}"
+            : "{Unexpected Sender}";
+        return this;
+    }
 
     #region Static
     internal static JsonSerializerOptions EmailEntitySerializerOptions = new() {
@@ -26,7 +29,11 @@ public class EmailEntityDto {
 
     internal static EmailEntityDto? FromJson(string data) {
         try {
-            return JsonSerializer.Deserialize<EmailEntityDto>(data, EmailEntitySerializerOptions);
+            var dto = JsonSerializer.Deserialize<EmailEntityDto>(data, EmailEntitySerializerOptions);
+            if (dto is not null) {
+                dto.StatusName = dto.Status.ToString();
+            }
+            return dto;
         } catch {
             return null;
         }
