@@ -3,3 +3,10 @@ services:
     build:
       context: .
       dockerfile: src/EmailService.Api/Dockerfile
+
+  emailservice.webapp:
+    build:
+      context: .
+      dockerfile: src/EmailService.WebApp/Dockerfile
+    depends_on:
+      - emailservice.api

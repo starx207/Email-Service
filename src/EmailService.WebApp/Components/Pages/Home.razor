@@ -1,0 +1,95 @@
+@page "/"
+@using EmailService.Api.Contracts.Requests
+@using EmailService.Api.Sdk
+@using EmailService.WebApp.Models
+
+@inject IEmailServiceApi EmailServiceApi
+@implements IDisposable
+
+<PageTitle>Home</PageTitle>
+
+<h3>Compose Email</h3>
+
+<div class="main">
+    <EditForm EditContext="editContext" OnValidSubmit="SendEmail" FormName="SendEmailForm">
+        <div class="form-field">
+            <label>To:</label>
+            <div>
+                <InputText @bind-Value="Email!.Recipient" />
+                <ValidationMessage For="@(() => Email.Recipient)" />
+            </div>
+        </div>
+
+        <div class="form-field">
+            <label>Subject:</label>
+            <div>
+                <InputText @bind-Value="Email.Subject" />
+                <ValidationMessage For="@(() => Email.Subject)" />
+            </div>
+        </div>
+
+        <div class="form-field">
+            <label>Message:</label>
+            <div>
+                <InputTextArea @bind-Value="Email.Body" />
+                <ValidationMessage For="@(() => Email.Body)" />
+            </div>
+        </div>
+
+        <button type="submit">Send Email</button>
+
+        <DataAnnotationsValidator />
+    </EditForm>
+</div>
+
+@if (!string.IsNullOrEmpty(StatusMessage))
+{
+    <p>@StatusMessage</p>
+}
+
+@code {
+    [SupplyParameterFromForm]
+    EmailSubmission? Email { get; set; }
+
+    bool isError = false;
+    string StatusMessage = string.Empty;
+    private EditContext? editContext;
+
+    protected override void OnInitialized()
+    {
+        Email ??= new();
+        editContext = new EditContext(Email);
+        editContext.OnFieldChanged += HandleFieldChanged;
+    }
+
+    public void Dispose()
+    {
+        if (editContext is null) return;
+        editContext.OnFieldChanged -= HandleFieldChanged;
+    }
+
+    private void HandleFieldChanged(object? sender, FieldChangedEventArgs e)
+    {
+        isError = editContext?.Validate() is false;
+        StateHasChanged();
+    }
+
+    async Task SendEmail()
+    {
+        try
+        {
+            await EmailServiceApi.SendEmailAsync(new SendEmailRequest
+            {
+                To = Email!.Recipient,
+                Subject = Email.Subject,
+                Body = Email.Body
+            });
+
+            StatusMessage = "Email sent successfully!";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to send email: {ex.Message}";
+        }
+    }
+}
