@@ -163,4 +163,50 @@ public class Endpoint_Email_Post : VerifyBase, IClassFixture<EmailApplicationDat
             Logs = _factory.Logger.LogEntries
         });
     }
+
+    [Fact]
+    public async Task ShouldNotBlock_SubsequentEmails_WhenOneIsSlowToSend() {
+        // Arrange
+        using var client = _factory.CreateClient();
+        var subject1 = "Test Subject 1";
+        var subject2 = "Test Subject 2";
+
+        // Simulate the first email taking a long time to send
+        _factory.EmailClient.Configure().SendAsync(default!, default).ReturnsForAnyArgs(async callInfo => {
+            var sub = callInfo.Arg<MimeKit.MimeMessage>().Subject;
+            if (sub == subject1) {
+                await Task.Delay(TimeSpan.FromMilliseconds(200));
+            }
+            await _factory.EmailClient.SendInternalAsync(callInfo);
+        });
+
+        // Act
+        var response1 = await client.PostAsJsonAsync("/api/email", new {
+            To = "some@email.com",
+            Subject = subject1,
+            Body = "Test Body"
+        });
+        var response2 = await client.PostAsJsonAsync("/api/email", new {
+            To = "some@email.com",
+            Subject = subject2,
+            Body = "Test Body"
+        });
+
+        // Wait for both emails to be sent, then retrieve them
+        response1.EnsureSuccessStatusCode();
+        response2.EnsureSuccessStatusCode();
+        var emailId1 = await response1.Content.ReadAsStringAsync();
+        var emailId2 = await response2.Content.ReadAsStringAsync();
+
+        await _factory.Database.WaitForRetriesAsync(emailId1);
+        await _factory.Database.WaitForRetriesAsync(emailId2);
+
+        var email1 = await _factory.Database.GetEmailByIdAsync(emailId1);
+        var email2 = await _factory.Database.GetEmailByIdAsync(emailId2);
+
+        // Assert
+        email1!.SubmittedOn.ShouldBeLessThan(email2!.SubmittedOn);
+        email1.DeliveryDate!.Value
+            .ShouldBeGreaterThan(email2.DeliveryDate!.Value);
+    }
 }
