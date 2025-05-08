@@ -18,18 +18,6 @@ internal sealed class EmailQueueProcessor : BackgroundService {
         _serviceProvider = serviceProvider;
     }
 
-    // TODO: Time-permitting, I should have another hosted service that will check the database for emails that
-    //       need to be retried. It could just run every couple of hours or so.
-    //       It would look for emails with a status of "pending" or "failed" that are older than a certain
-    //       amount of time. It would then submit them to the queue again.
-    //       For this to work, I would need to include the current retry attempt of the email when sending
-    //       it to the queue. The email sender would then need to accept the retry attempt and modify the
-    //       retry policy to only retry the max number of times minus the current attempt.
-    //       If only one attemp is left, we could bypass the retry policy creation.
-    //
-    //       The reason for needing this is if the email service is down for a period of time and the in-flight
-    //       emails are left in a "pending" or "failed" state (i.e. the retry policy was interrupted).
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
         var tasks = new List<Task>();
         var semaphore = new SemaphoreSlim(5); // Limit to 5 concurrent tasks. Could make this configurable later on.
