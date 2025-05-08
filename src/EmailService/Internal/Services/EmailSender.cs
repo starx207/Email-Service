@@ -22,7 +22,7 @@ internal sealed class EmailSender : IEmailSender {
         : this(emailClient, emailConfig, emailStore)
         => _logger = logger;
 
-    public async Task SendAsync(Guid emailId, string recipient, string subject, string message, CancellationToken cancellationToken = default) {
+    public async Task SendAsync(Guid emailId, string recipient, string subject, string message, int currentRetryAttempt = 0, CancellationToken cancellationToken = default) {
         var mailMessage = new MimeKit.MimeMessage {
             Subject = subject,
             Body = new MimeKit.TextPart(MimeKit.Text.TextFormat.Plain) { Text = message }
@@ -31,12 +31,14 @@ internal sealed class EmailSender : IEmailSender {
         mailMessage.To.Add(new MimeKit.MailboxAddress(recipient, recipient));
 
         // Configure the retry policy for sending the email.
-        var retryPolicy = CreateRetryPolicy(emailId, cancellationToken);
+        var retryPolicy = CreateRetryPolicy(emailId, currentRetryAttempt, cancellationToken);
         // Configure the fallback policy for when all retries fail.
         var fallbackPolicy = CreateFallbackPolicy(emailId, recipient, subject, cancellationToken);
+        // If the retry policy is null, we only need the fallback policy.
+        var finalPolicy = retryPolicy is null ? fallbackPolicy : fallbackPolicy.WrapAsync(retryPolicy);
 
         // Send the email with the retry and fallback policies applied.
-        await fallbackPolicy.WrapAsync(retryPolicy).ExecuteAsync(async (token) => {
+        await finalPolicy.ExecuteAsync(async (token) => {
             var socketOptions = SocketOptionsFrom(_emailConfig.SecureSocket);
             await _emailClient.ConnectAsync(_emailConfig.Host, _emailConfig.Port, socketOptions, token);
             await _emailClient.AuthenticateAsync(_emailConfig.Sender, _emailConfig.Password, token);
@@ -60,11 +62,15 @@ internal sealed class EmailSender : IEmailSender {
             }
         );
 
-    private IAsyncPolicy CreateRetryPolicy(Guid emailId, CancellationToken token) {
+    private IAsyncPolicy? CreateRetryPolicy(Guid emailId, int currentRetryAttempt, CancellationToken token) {
+        if (currentRetryAttempt == EmailConstants.MAX_RETRIES - 1) {
+            return null; // Only 1 retry left, no need for a retry policy.
+        }
+
         var delay = _emailConfig.RetryDelayTimeSpan;
         return Policy.Handle<Exception>()
             .WaitAndRetryAsync(
-                retryCount: EmailConstants.MAX_RETIRES,
+                retryCount: EmailConstants.MAX_RETRIES - currentRetryAttempt,
                 sleepDurationProvider: attempt => delay * Math.Pow(2, attempt - 1),
                 onRetryAsync: async (_, _) => {
                     await _emailStore.RecordEmailFailedAsync(emailId, token);

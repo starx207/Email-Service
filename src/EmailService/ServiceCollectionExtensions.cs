@@ -43,6 +43,7 @@ public static class ServiceCollectionExtensions {
             AllowSynchronousContinuations = false
         }));
         services.AddHostedService<EmailQueueProcessor>();
+        services.AddHostedService<OrphanedEmailProcessor>();
     }
 
     private static void AddEmailPersistence(this IServiceCollection services, EmailConfiguration emailConfig) {

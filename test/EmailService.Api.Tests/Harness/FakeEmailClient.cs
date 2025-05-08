@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using EmailService.Internal.Services;
 using MailKit.Security;
 using MimeKit;
@@ -10,7 +11,7 @@ public class FakeEmailClient : IEmailClient {
     private bool _connected;
 
     public EmailConfiguration Configuration { get; set; } = null!;
-    public List<SentEmail> SentEmails { get; } = [];
+    public ConcurrentBag<SentEmail> SentEmails { get; } = [];
 
     public virtual Task AuthenticateAsync(string userName, string password, CancellationToken cancellationToken = default) {
         _authenticated = string.Equals(userName, Configuration.Sender) && string.Equals(password, Configuration.Password);

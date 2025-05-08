@@ -25,6 +25,7 @@ public sealed class EmailApplicationDatabaseProvider : IAsyncLifetime {
 
 public sealed class EmailApplicationFactory : WebApplicationFactory<Program> {
     private readonly PostgreSqlContainer _dbContainer;
+    private Func<EmailDatabase, Task>? _seedDbAsyncFunc = null;
 
     public EmailApplicationFactory(EmailApplicationDatabaseProvider dbProvider) : base() {
         _dbContainer = dbProvider.DbContainer;
@@ -34,6 +35,8 @@ public sealed class EmailApplicationFactory : WebApplicationFactory<Program> {
     public FakeEmailClient EmailClient { get; private set; } = null!;
     public TestEmailLogger Logger { get; } = new TestEmailLogger();
     public EmailDatabase Database { get; } = null!;
+
+    public void SeedDatabase(Func<EmailDatabase, Task> seed) => _seedDbAsyncFunc = seed;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder) {
         // Additional configuration before services are registered.
@@ -57,6 +60,9 @@ public sealed class EmailApplicationFactory : WebApplicationFactory<Program> {
             EmailClient = (FakeEmailClient)serviceProvider.GetRequiredService<IEmailClient>();
             EmailClient.Configuration = serviceProvider.GetRequiredService<EmailConfiguration>();
             Database.Configuration = EmailClient.Configuration;
+            if (_seedDbAsyncFunc is { }) {
+                _seedDbAsyncFunc(Database).Wait(); // Force this to run synchronously. Don't want the test to proceed until this is done.
+            }
 
             services.TryAddEnumerable(
                 ServiceDescriptor.Singleton<ILoggerProvider>(new TestEmailLoggerProvider(Logger))
@@ -66,18 +72,17 @@ public sealed class EmailApplicationFactory : WebApplicationFactory<Program> {
 
     #region Database Helpers
     public class EmailDatabase {
-        private readonly string _connectionString;
-        public EmailDatabase(string connectionString) => _connectionString = connectionString;
+        public EmailDatabase(string connectionString) => ConnectionString = connectionString;
 
+        public string ConnectionString { get; }
         public EmailConfiguration Configuration { get; set; } = null!;
 
-        public async Task<EmailEntityDto?> GetEmailByIdAsync(string emailId, bool scrubResult = true) {
-            if (!Guid.TryParse(emailId, out var id)) {
-                return null;
-            }
-
+        public async Task<EmailEntityDto?> GetEmailByIdAsync(string emailId, bool scrubResult = true) 
+            => Guid.TryParse(emailId, out var id) ? await GetEmailByIdAsync(id, scrubResult) : null;
+            
+        public async Task<EmailEntityDto?> GetEmailByIdAsync(Guid emailId, bool scrubResult = true) {
             await using var connection = await OpenConnectionAsync();
-            await using var command = CreateGetEmailByIdCommand(id, connection);
+            await using var command = CreateGetEmailByIdCommand(emailId, connection);
             var email = await GetEmailFromCommandAsync(command);
             return scrubResult ? ScrubEmail(email) : email;
         }
@@ -113,10 +118,14 @@ public sealed class EmailApplicationFactory : WebApplicationFactory<Program> {
             if (!Guid.TryParse(emailId, out var id)) {
                 return;
             }
+            await WaitForRetriesAsync(id, pollingInterval, cancellationTimeout);
+        }
+            
+        public async Task WaitForRetriesAsync(Guid emailId, TimeSpan? pollingInterval = null, TimeSpan? cancellationTimeout = null) {
             pollingInterval ??= TimeSpan.FromMilliseconds(250);
 
             await using var connection = await OpenConnectionAsync();
-            await using var command = CreateGetEmailByIdCommand(id, connection);
+            await using var command = CreateGetEmailByIdCommand(emailId, connection);
             var cancellationToken = new CancellationTokenSource(cancellationTimeout ?? TimeSpan.FromSeconds(10)).Token;
 
             while (true) {
@@ -160,7 +169,7 @@ public sealed class EmailApplicationFactory : WebApplicationFactory<Program> {
         private EmailEntityDto? ScrubEmail(EmailEntityDto? email) => email?.ScrubSender(Configuration);
 
         private async Task<NpgsqlConnection> OpenConnectionAsync(CancellationToken cancellationToken = default) {
-            var connection = new NpgsqlConnection(_connectionString);
+            var connection = new NpgsqlConnection(ConnectionString);
             await connection.OpenAsync(cancellationToken);
             return connection;
         }

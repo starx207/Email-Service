@@ -18,7 +18,7 @@ public sealed class EmailProjection : SingleStreamProjection<Email> {
         if (currentStatus == EmailStatus.Failed) {
             email.Retries++; // Increment the retry count if the email has already failed before.
         }
-        email.Status = email.Retries >= EmailConstants.MAX_RETIRES ? EmailStatus.Undeliverable : EmailStatus.Failed;
+        email.Status = email.Retries >= EmailConstants.MAX_RETRIES ? EmailStatus.Undeliverable : EmailStatus.Failed;
         email.LastSendAttempt = failure.Timestamp;
         return email;
     }

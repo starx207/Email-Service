@@ -1,0 +1,73 @@
+﻿{
+  Sent: [
+    {
+      To: test@recipient.com,
+      Subject: Orphaned after 1,
+      Body: Test Body
+    },
+    {
+      To: test@recipient.com,
+      Subject: Orphaned after 2,
+      Body: Test Body
+    },
+    {
+      To: test@recipient.com,
+      Subject: Orphaned after 3,
+      Body: Test Body
+    },
+    {
+      To: test@recipient.com,
+      Subject: Orphaned Pending,
+      Body: Test Body
+    }
+  ],
+  Saved: [
+    {
+      Id: Guid_1,
+      Body: Test Body,
+      Sender: {Configuration.Sender},
+      StatusName: Delivered,
+      Subject: Orphaned Pending,
+      Recipient: test@recipient.com,
+      SubmittedOn: DateTime_1,
+      DeliveryDate: DateTime_2,
+      LastSendAttempt: DateTime_2
+    },
+    {
+      Id: Guid_2,
+      Body: Test Body,
+      Sender: {Configuration.Sender},
+      StatusName: Delivered,
+      Retries: 1,
+      Subject: Orphaned after 1,
+      Recipient: test@recipient.com,
+      SubmittedOn: DateTime_1,
+      DeliveryDate: DateTime_3,
+      LastSendAttempt: DateTime_3
+    },
+    {
+      Id: Guid_3,
+      Body: Test Body,
+      Sender: {Configuration.Sender},
+      StatusName: Delivered,
+      Retries: 2,
+      Subject: Orphaned after 2,
+      Recipient: test@recipient.com,
+      SubmittedOn: DateTime_1,
+      DeliveryDate: DateTime_4,
+      LastSendAttempt: DateTime_4
+    },
+    {
+      Id: Guid_4,
+      Body: Test Body,
+      Sender: {Configuration.Sender},
+      StatusName: Delivered,
+      Retries: 3,
+      Subject: Orphaned after 3,
+      Recipient: test@recipient.com,
+      SubmittedOn: DateTime_1,
+      DeliveryDate: DateTime_5,
+      LastSendAttempt: DateTime_5
+    }
+  ]
+}

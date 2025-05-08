@@ -39,7 +39,11 @@ internal sealed class EmailQueueProcessor : BackgroundService {
                 var queued = await _submittedChannel.Reader.ReadAsync(stoppingToken);
 
                 Guid emailId;
-                await using (var scope = _serviceProvider.CreateAsyncScope()) {
+                if (queued.ExistingEmailId.HasValue) {
+                    emailId = queued.ExistingEmailId.Value;
+                } else {
+                    // The email ID is not known yet. We need to create a new email record in the database.
+                    await using var scope = _serviceProvider.CreateAsyncScope();
                     var emailStore = scope.ServiceProvider.GetRequiredService<IEmailEventStore>();
                     await using var session = emailStore.CreateAsyncSession();
                     emailId = session.SubmitEmail(queued.Recipient, queued.Subject, queued.Message);
@@ -72,6 +76,6 @@ internal sealed class EmailQueueProcessor : BackgroundService {
     private async Task SendEmailAsync(Guid emailId, EmailQueued queued, CancellationToken stoppingToken) {
         await using var scope = _serviceProvider.CreateAsyncScope();
         var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
-        await emailSender.SendAsync(emailId, queued.Recipient, queued.Subject, queued.Message, stoppingToken);
+        await emailSender.SendAsync(emailId, queued.Recipient, queued.Subject, queued.Message, queued.CurrentRetryCount, stoppingToken);
     }    
 }
