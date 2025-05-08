@@ -4,7 +4,7 @@ using EmailService.Internal.Services;
 namespace EmailService;
 
 public sealed class EmailConfiguration {
-    // TODO: We should really have validation on anything the consumer is giving as input
+    // TODO: We should really have validation on anything the consumer is giving as input. I skipped that for the sake of time.
     public string Sender { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
     public string Host { get; set; } = string.Empty;

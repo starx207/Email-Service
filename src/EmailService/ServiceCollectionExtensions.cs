@@ -62,7 +62,7 @@ public static class ServiceCollectionExtensions {
 
         }).UseLightweightSessions()
         .OptimizeArtifactWorkflow()
-        // TODO: Realistically, I wouldn't do this unless running in development. Production db changes ought to be handled differently
+        // NOTE: Realistically, I wouldn't do this unless running in development. Production db changes ought to be handled differently
         .ApplyAllDatabaseChangesOnStartup();
     }
 
