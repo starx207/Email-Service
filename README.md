@@ -21,7 +21,7 @@ The Email-Service application is designed to handle high-volume email sending ef
      - **EMAIL__SENDER**: The email account from which to send emails.
      - **EMAIL__PASSWORD**: The password for the sender email account.
      - **CONNECTIONSTRINGS__USER**: The user to use for connecting to the Postgres database.
-     - **CONNECTIONSTRINGS_PASSWORD**: The password to use for connecting to the Postgres database.
+     - **CONNECTIONSTRINGS__PASSWORD**: The password to use for connecting to the Postgres database.
      
      In `docker-compose.override.yml`:
      ```yml
@@ -31,7 +31,7 @@ The Email-Service application is designed to handle high-volume email sending ef
          - ASPNETCORE_URLS=http://+:80
          - EMAIL__SENDER=${EMAIL__SENDER}
          - EMAIL__PASSWORD=${EMAIL__PASSWORD}
-         - CONNECTIONSTRINGS__PASSWORD=${CONNECTIONSTRINGS_PASSWORD}
+         - CONNECTIONSTRINGS__PASSWORD=${CONNECTIONSTRINGS__PASSWORD}
          - CONNECTIONSTRINGS__USER=${CONNECTIONSTRINGS__USER}
 
 
@@ -41,7 +41,7 @@ The Email-Service application is designed to handle high-volume email sending ef
           - "5432:5432"
         environment:
           POSTGRES_USER: ${CONNECTIONSTRINGS__USER}
-          POSTGRES_PASSWORD: ${CONNECTIONSTRINGS_PASSWORD}
+          POSTGRES_PASSWORD: ${CONNECTIONSTRINGS__PASSWORD}
           POSTGRES_DB: EmailServiceDb
      ```
         > NOTE: Underscores in each variable name are doubled.
@@ -70,7 +70,7 @@ The Email-Service application is designed to handle high-volume email sending ef
 ## Build and Run
 1. Build and run the Docker containers:
    ```bash
-   $ docker-compose up --build
+   $ docker compose up --build
    ```
 2. Access the API at `http://localhost:5000` and the web application at `http://localhost:5001`.
     
