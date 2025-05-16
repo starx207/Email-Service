@@ -1,5 +1,7 @@
 using System.Threading.Channels;
 using EmailService.Internal.Dto;
+using EmailService.Internal.Extensions;
+using EmailService.Models;
 
 namespace EmailService.Internal.Services;
 
@@ -12,12 +14,16 @@ internal sealed class EmailService : IEmailService {
         _assignedChannel = assignedChannel;
     }
 
-    public async Task<Guid> SendEmailAsync(string recipient, string subject, string message, CancellationToken cancellationToken = default) {
+    public async Task<Result<Guid, ValidationErr[]>> SendEmailAsync(string recipient, string subject, string message, CancellationToken cancellationToken = default) {
         var queued = new EmailQueued {
             Recipient = recipient,
             Subject = subject,
             Message = message
         };
+        if ((await QueuedEmailValidator.Instance.ValidateAsync(queued, cancellationToken)) is { IsValid: false } errs) {
+            return errs.ToErrArray();
+        } 
+        
         var responseTask = GetAssignedEmailIdAsync(queued.TraceId, cancellationToken);
 
         await _submittedChannel.Writer.WriteAsync(queued, cancellationToken);

@@ -1,0 +1,17 @@
+﻿[
+  {
+    Field: Recipient,
+    Value: invalid-email,
+    Problem: 'Recipient' is not a valid email address.
+  },
+  {
+    Field: Subject,
+    Value: ,
+    Problem: 'Subject' must not be empty.
+  },
+  {
+    Field: Message,
+    Value: ,
+    Problem: 'Message' must not be empty.
+  }
+]

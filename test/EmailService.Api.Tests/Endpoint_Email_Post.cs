@@ -1,10 +1,13 @@
 using EmailService.Api.Tests.Harness;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using NSubstitute.Extensions;
 using Shouldly;
+using System.Dynamic;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace EmailService.Api.Tests;
 
@@ -208,5 +211,30 @@ public class Endpoint_Email_Post : VerifyBase, IClassFixture<EmailApplicationDat
         email1!.SubmittedOn.ShouldBeLessThan(email2!.SubmittedOn);
         email1.DeliveryDate!.Value
             .ShouldBeGreaterThan(email2.DeliveryDate!.Value);
+    }
+
+    [Fact]
+    public async Task Should_Return_Error_Details_When_Request_Invalid() {
+        // Arrange
+        using var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/email", new {
+            To = "invalid-email",
+            Subject = "",
+            Body = ""
+        });
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var errors = await response.Content.ReadFromJsonAsync<ExpectedValidationErr[]>();
+
+        await Verify(errors);
+    }
+
+    public class ExpectedValidationErr {
+        public string Field { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
+        public string Problem { get; set; } = string.Empty;
     }
 }
